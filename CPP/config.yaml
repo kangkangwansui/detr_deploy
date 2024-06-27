@@ -1,0 +1,18 @@
+
+isBuild : false  #是否创建引擎
+isSaveEngine : true  #是否保存引擎
+fp16 : false
+int8 : false
+
+dlaCore : -1
+
+modelLenth : 800  #图像输入尺寸
+classes : 21 #包括背景
+num : 100
+
+confidence : 0.5
+
+onnx_file_path : /home/zhoukang/GithubProject/detr_from_bubbliiiing/onnx/detr.onnx  #onnx文件路径
+EngineOutputFile : /home/zhoukang/GithubProject/detr-deploy/CPP/engine  #保存引擎的文件夹
+classes_txt : /home/zhoukang/GithubProject/detr_from_bubbliiiing/model_data/voc_classes.txt #类别文件路径
+engineflie : /home/zhoukang/GithubProject/detr-deploy/CPP/engine/detr.engine #detr_int8,models
