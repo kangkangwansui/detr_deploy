@@ -116,12 +116,6 @@ bool DETR::build(){
 }
 
 bool DETR::inferFromEngine(cv::Mat img,std::vector<OutputParam>& boxes_information){
-    auto beforeTime = std::chrono::steady_clock::now();
-
-    float *input_blob = new float[mInput.modelLenth * mInput.modelLenth * 3];
-    //图像预处理
-    preprocess_img(img, mInput, input_blob);
-
     std::string engineflie = mInput.engineflie;
     std::ifstream file(engineflie,std::ios::binary);
     if(!file.good()){
@@ -188,15 +182,28 @@ bool DETR::inferFromEngine(cv::Mat img,std::vector<OutputParam>& boxes_informati
     cudaStream_t stream;
     cudaStreamCreate(&stream);  //在GPU创建进程束
 
+    auto startTime = std::chrono::steady_clock::now();
+
+    float *input_blob = new float[mInput.modelLenth * mInput.modelLenth * 3];
+    //图像预处理
+    preprocess_img(img, mInput, input_blob);
+
+    auto Time1 = std::chrono::steady_clock::now();
+
     // 将输入数据从CPU传输到GPU
-    cudaMemcpy(buffers[0], input_blob, input_size * sizeof(float), cudaMemcpyHostToDevice);  
+    cudaMemcpy(buffers[0], input_blob, input_size * sizeof(float), cudaMemcpyHostToDevice); 
+
+    auto Time2 = std::chrono::steady_clock::now(); 
 
     context->enqueueV2(buffers, stream, nullptr);
 
+    auto Time3 = std::chrono::steady_clock::now();
+
     cudaMemcpy(output_CpuBuffer_1, buffers[1],output_size_1 * sizeof(float),cudaMemcpyDeviceToHost);
     cudaMemcpy(output_CpuBuffer_2, buffers[2],output_size_2 * sizeof(float),cudaMemcpyDeviceToHost);
-
     cudaStreamSynchronize(stream);//等待输出数据传输完毕
+
+    auto Time4 = std::chrono::steady_clock::now();
 
     int output_softmax_size = output_size_1;
     float* output_softmax_1 = new float[output_softmax_size]();
@@ -211,11 +218,21 @@ bool DETR::inferFromEngine(cv::Mat img,std::vector<OutputParam>& boxes_informati
 
     print_output_information(boxes_information);
 
-    auto afterTime = std::chrono::steady_clock::now();
+    auto endTime = std::chrono::steady_clock::now();
 
     //毫秒级
-	double duration_millsecond = std::chrono::duration<double, std::milli>(afterTime - beforeTime).count();
-	std::cout << duration_millsecond << "毫秒" << std::endl;
+	double per_process_time = std::chrono::duration<double, std::milli>(Time1 - startTime).count();
+    double cpy_c2g_time = std::chrono::duration<double, std::milli>(Time2 - Time1).count();
+    double infer_time = std::chrono::duration<double, std::milli>(Time3 - Time2).count();
+    double cpy_g2c_time = std::chrono::duration<double, std::milli>(Time4 - Time3).count();
+    double post_process_time = std::chrono::duration<double, std::milli>(endTime - Time4).count();
+    double totall_time = std::chrono::duration<double, std::milli>(endTime - startTime).count();
+    std::cout << "图像处理时间 ： " << per_process_time << "毫秒" << std::endl;
+    std::cout << "cpu->gpu时间 ： " << cpy_c2g_time << "毫秒" << std::endl;
+    std::cout << "推理时间 ： " << infer_time << "毫秒" << std::endl;
+    std::cout << "gpu->cpu时间 ： " << cpy_g2c_time << "毫秒" << std::endl;
+	std::cout << "后处理时间 ： " << post_process_time << "毫秒" << std::endl;
+    std::cout << "总时间时间 ： " << totall_time << "毫秒" << std::endl;
 
     // 释放资源
     cudaFree(buffers[0]);
@@ -272,7 +289,7 @@ void interface(std::string yamlPath, cv::Mat img){
 
 int main(){
     std::cout << "welcome to use DETR !" << std::endl;
-    cv::Mat img = cv::imread("./image/five_person.jpg");
+    cv::Mat img = cv::imread("/home/zhoukang/GithubProject/detr_from_bubbliiiing/CPP/image/car.jpg");
     if(img.empty()){
         std::cout << "could not open or find the image" << std::endl;
         return -1;
